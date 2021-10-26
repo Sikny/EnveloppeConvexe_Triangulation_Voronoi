@@ -237,7 +237,7 @@ GameObject:
   - component: {fileID: 58055096}
   - component: {fileID: 58055095}
   m_Layer: 6
-  m_Name: Background
+  m_Name: RaycastPlane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -264,7 +264,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 58055094}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -1275,7 +1275,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1535903722}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 72716456}
+        m_TargetAssemblyTypeName: GeometryManager, Assembly-CSharp
+        m_MethodName: RunJarvisMarch
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1535903722
 MonoBehaviour:
   m_ObjectHideFlags: 0
