@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class PointDrawer : MonoBehaviour
 {
@@ -19,6 +20,7 @@ public class PointDrawer : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
+            if (EventSystem.current.IsPointerOverGameObject()) return;
             if (mode == DrawMode.TwoDimensions)
             {
                 Vector2 mousePos = Input.mousePosition;
