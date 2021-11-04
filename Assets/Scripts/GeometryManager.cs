@@ -7,7 +7,8 @@ public class GeometryManager : MonoBehaviour
     public static GeometryManager instance;
 
     public List<Transform> points;
-    private List<LineRenderer> _lineRenderers;
+    [SerializeField] private LineRenderer lineRendererPrefab;
+    private LineRenderer _lineRenderer;
 
     private void Awake()
     {
@@ -15,7 +16,6 @@ public class GeometryManager : MonoBehaviour
             Destroy(gameObject);
         instance = this;
         points = new List<Transform>();
-        _lineRenderers = new List<LineRenderer>();
     }
 
     public void AddPoint(Transform p)
@@ -95,11 +95,37 @@ public class GeometryManager : MonoBehaviour
         } while (i != i0 && crashHandler >= 0);
 
         polygon.Add(polygon[0]);
+
+        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+        _lineRenderer = Instantiate(lineRendererPrefab);
+        _lineRenderer.positionCount = polygon.Count;
+        _lineRenderer.SetPositions(polygon.ToArray());
+    }
+
+    public void RunGrahamScan()
+    {
+        // 1 - Calcul du barycentre
+        Vector3 center = Vector3.zero;
+        foreach (var point in points)
+        {
+            center += point.position;
+        }
+
+        center /= points.Count;
         
-        GameObject lineRendererGo = new GameObject("LineRendererJarvis");
-        LineRenderer lineRenderer = lineRendererGo.AddComponent<LineRenderer>();
-        lineRenderer.positionCount = polygon.Count;
-        lineRenderer.SetPositions(polygon.ToArray());
-        lineRenderer.startWidth = lineRenderer.endWidth = 0.1f;
+        // 2 - Tri des points Pi de points suivant l'angle orienté center, Pi
+        points.Sort((t1, t2) => (int) Mathf.Sign(Vector3.SignedAngle(center, t2.position, Vector3.up) - Vector3.SignedAngle(center, t1.position, Vector3.up)));
+
+        List<Vector3> polygon = new List<Vector3>();
+        foreach (var point in points)
+        {
+            polygon.Add(point.position);
+        }
+        polygon.Add(points[0].position);
+        
+        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+        _lineRenderer = Instantiate(lineRendererPrefab);
+        _lineRenderer.positionCount = polygon.Count;
+        _lineRenderer.SetPositions(polygon.ToArray());
     }
 }
