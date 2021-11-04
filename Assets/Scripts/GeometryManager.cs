@@ -12,7 +12,7 @@ public class GeometryManager : MonoBehaviour
 
     private void Awake()
     {
-        if (instance != null) 
+        if (instance != null)
             Destroy(gameObject);
         instance = this;
         points = new List<Transform>();
@@ -27,7 +27,7 @@ public class GeometryManager : MonoBehaviour
     {
         // polygone resultat
         List<Vector3> polygon = new List<Vector3>();
-        
+
         /*
          * 0 - initialisation : Premier sommet de l'enveloppe convexe déterminé en considérant
          * une droite verticale s'appuyant sur le point le plus à gauche
@@ -40,7 +40,7 @@ public class GeometryManager : MonoBehaviour
                 firstPoint = point;
             }
         }
-        
+
         /*
          * 1 - Faire tourner la droite autour du point dans le sens trigo jusqu'à ce qu'elle
          * contienne un autre point
@@ -59,7 +59,7 @@ public class GeometryManager : MonoBehaviour
         {
             // ajout du point pivot au polygone
             polygon.Add(points[i].position);
-            
+
             // recherche du point suivant
             // initialisation de alphaMin et lMax avec le premier point d'indice différent de i
             if (i == 0) j = 1;
@@ -68,7 +68,7 @@ public class GeometryManager : MonoBehaviour
             alphaMin = Vector3.Angle(direction, PiPj); // vecteur PiPj
             lMax = PiPj.magnitude;
             iNew = j;
-            
+
             // recherche du point le plus proche (en angle) de la droite
 
             for (j = iNew + 1; j < n; ++j)
@@ -85,6 +85,7 @@ public class GeometryManager : MonoBehaviour
                     }
                 }
             }
+
             // mise à jour du pivot et du vecteur directeur
             direction = points[iNew].position - points[i].position;
             direction.y = 0;
@@ -96,34 +97,66 @@ public class GeometryManager : MonoBehaviour
 
         polygon.Add(polygon[0]);
 
-        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+        if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
         _lineRenderer.positionCount = polygon.Count;
         _lineRenderer.SetPositions(polygon.ToArray());
     }
 
+    [ContextMenu("OK")]
     public void RunGrahamScan()
     {
-        // 1 - Calcul du barycentre
-        Vector3 center = Vector3.zero;
-        foreach (var point in points)
-        {
-            center += point.position;
-        }
-
-        center /= points.Count;
-        
-        // 2 - Tri des points Pi de points suivant l'angle orienté center, Pi
-        points.Sort((t1, t2) => (int) Mathf.Sign(Vector3.SignedAngle(center, t2.position, Vector3.up) - Vector3.SignedAngle(center, t1.position, Vector3.up)));
-
         List<Vector3> polygon = new List<Vector3>();
         foreach (var point in points)
         {
             polygon.Add(point.position);
         }
-        polygon.Add(points[0].position);
+
+        // 1 - Calcul du barycentre
+        Vector3 center = Vector3.zero;
+        foreach (var point in polygon)
+        {
+            center += point;
+        }
+
+        center /= points.Count;
+
+        // 2 - Tri des points Pi de points suivant l'angle orienté center, Pi
+        polygon.Sort((p1, p2) =>
+            Math.Sign(Vector3.SignedAngle(center, p2, Vector3.up) - Vector3.SignedAngle(center, p1, Vector3.up)));
+
+        // 3 - Suppression des points non convexes du polygone
+        int sommetInit = 0;
+        int pivot = sommetInit;
+        bool avance;
         
-        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+        int crashHandler = 1000;
+        do
+        {
+            int previous = pivot - 1 < 0 ? polygon.Count - 1 : pivot - 1;
+            int next = pivot + 1 > polygon.Count - 1 ? 0 : pivot + 1;
+            if (Vector3.SignedAngle(polygon[previous] - polygon[pivot], polygon[next] - polygon[pivot], Vector3.up) <= Mathf.PI)  // si pivot convexe
+            {
+                pivot = pivot + 1;
+                if (pivot > polygon.Count - 1) pivot = 0;
+                avance = true;
+            }
+            else
+            {
+                sommetInit = pivot - 1;
+                polygon.RemoveAt(pivot);
+                if (sommetInit < 0) sommetInit = polygon.Count - 1;
+                pivot = sommetInit;
+                avance = false;
+            }
+
+            --crashHandler;
+        } while ((pivot != sommetInit || avance == false) && crashHandler >= 0);
+
+
+        polygon.Add(polygon[0]);
+
+        if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
         _lineRenderer.positionCount = polygon.Count;
         _lineRenderer.SetPositions(polygon.ToArray());
