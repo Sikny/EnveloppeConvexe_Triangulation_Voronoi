@@ -106,24 +106,24 @@ public class GeometryManager : MonoBehaviour
     [ContextMenu("OK")]
     public void RunGrahamScan()
     {
-        List<Vector3> polygon = new List<Vector3>();
+        List<Vector2> polygon = new List<Vector2>();
         foreach (var point in points)
         {
-            polygon.Add(point.position);
+            Vector3 pointPos = point.position;
+            polygon.Add(new Vector2(pointPos.x, pointPos.z));
         }
 
         // 1 - Calcul du barycentre
-        Vector3 center = Vector3.zero;
+        Vector2 center = Vector2.zero;
         foreach (var point in polygon)
         {
             center += point;
         }
-
         center /= points.Count;
 
         // 2 - Tri des points Pi de points suivant l'angle orienté center, Pi
         polygon.Sort((p1, p2) =>
-            Math.Sign(Vector3.SignedAngle(center, p2, Vector3.up) - Vector3.SignedAngle(center, p1, Vector3.up)));
+            Math.Sign(Vector2.SignedAngle(center, p2) - Vector2.SignedAngle(center, p1)));
 
         // 3 - Suppression des points non convexes du polygone
         int sommetInit = 0;
@@ -135,7 +135,8 @@ public class GeometryManager : MonoBehaviour
         {
             int previous = pivot - 1 < 0 ? polygon.Count - 1 : pivot - 1;
             int next = pivot + 1 > polygon.Count - 1 ? 0 : pivot + 1;
-            if (Vector3.SignedAngle(polygon[previous] - polygon[pivot], polygon[next] - polygon[pivot], Vector3.up) <= Mathf.PI)  // si pivot convexe
+            float angle = Vector2.SignedAngle(polygon[next] - polygon[pivot], polygon[previous] - polygon[pivot]);
+            if (angle > 180 || angle < 0)  // si pivot convexe
             {
                 pivot = pivot + 1;
                 if (pivot > polygon.Count - 1) pivot = 0;
@@ -159,6 +160,9 @@ public class GeometryManager : MonoBehaviour
         if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
         _lineRenderer.positionCount = polygon.Count;
-        _lineRenderer.SetPositions(polygon.ToArray());
+        for (int i = polygon.Count - 1; i >= 0; i--)
+        {
+            _lineRenderer.SetPosition(i, new Vector3(polygon[i].x, 0, polygon[i].y));
+        }
     }
 }
