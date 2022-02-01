@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class GeometryManager : MonoBehaviour
@@ -9,6 +10,8 @@ public class GeometryManager : MonoBehaviour
     public List<Transform> points;
     [SerializeField] private LineRenderer lineRendererPrefab;
     private LineRenderer _lineRenderer;
+    
+    private const float Tolerance = 0.0001f;
 
     private void Awake()
     {
@@ -21,6 +24,14 @@ public class GeometryManager : MonoBehaviour
     public void AddPoint(Transform p)
     {
         points.Add(p);
+    }
+
+    public void Clear() {
+        for (int i = points.Count - 1; i >= 0; --i) {
+            Destroy(points[i].gameObject);
+            points.RemoveAt(i);
+        }
+        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
     }
 
     public void RunJarvisMarch()
@@ -103,7 +114,6 @@ public class GeometryManager : MonoBehaviour
         _lineRenderer.SetPositions(polygon.ToArray());
     }
 
-    [ContextMenu("OK")]
     public void RunGrahamScan()
     {
         List<Vector2> polygon = new List<Vector2>();
@@ -160,9 +170,33 @@ public class GeometryManager : MonoBehaviour
         if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
         _lineRenderer.positionCount = polygon.Count;
-        for (int i = polygon.Count - 1; i >= 0; i--)
+        for (int i = polygon.Count - 1; i >= 0; --i)
         {
             _lineRenderer.SetPosition(i, new Vector3(polygon[i].x, 0, polygon[i].y));
         }
+    }
+
+    public void RunIncrementalTriangulation() {
+        var pointsCloud = points.Select(point => point.position).ToArray();
+        // 1 - tri par abscisse croissante
+        var sorted = false;
+        var pointLength = pointsCloud.Length;
+        while (!sorted) {
+            sorted = true;
+            for (int i = 0; i < pointLength - 1; ++i) {
+                if (pointsCloud[i].x > pointsCloud[i + 1].x
+                    || pointsCloud[i].x > pointsCloud[i + 1].x + Tolerance && pointsCloud[i].y > pointsCloud[i + 1].y) {
+                    sorted = false;
+                    // swap
+                    (pointsCloud[i], pointsCloud[i + 1]) = (pointsCloud[i + 1], pointsCloud[i]);
+                }
+            }
+        }
+
+        // 2 - initialisation
+        // a - on construit une suite de k - 1 aretes colineaires avec les k points alignés
+        // b - avec le premier point suivant à droite, trianguler
+        
+        // 3 - 
     }
 }
