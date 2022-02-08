@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -34,149 +35,27 @@ public class GeometryManager : MonoBehaviour
         if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
     }
 
-    public void RunJarvisMarch()
-    {
-        // polygone resultat
-        List<Vector3> polygon = new List<Vector3>();
-
-        /*
-         * 0 - initialisation : Premier sommet de l'enveloppe convexe déterminé en considérant
-         * une droite verticale s'appuyant sur le point le plus à gauche
-         */
-        Transform firstPoint = points[0];
-        foreach (var point in points)
-        {
-            if (point.position.x < firstPoint.position.x)
-            {
-                firstPoint = point;
-            }
-        }
-
-        /*
-         * 1 - Faire tourner la droite autour du point dans le sens trigo jusqu'à ce qu'elle
-         * contienne un autre point
-         */
-        int i0 = points.IndexOf(firstPoint);
-        Vector3 direction = new Vector3(0, 0, 1);
-        int i = i0;
-        int j;
-        float alpha, alphaMin;
-        float lMax;
-        int iNew;
-        int n = points.Count;
-
-        int crashHandler = 1000;
-        do
-        {
-            // ajout du point pivot au polygone
-            polygon.Add(points[i].position);
-
-            // recherche du point suivant
-            // initialisation de alphaMin et lMax avec le premier point d'indice différent de i
-            if (i == 0) j = 1;
-            else j = 0;
-            Vector3 PiPj = points[j].position - points[i].position;
-            alphaMin = Vector3.Angle(direction, PiPj); // vecteur PiPj
-            lMax = PiPj.magnitude;
-            iNew = j;
-
-            // recherche du point le plus proche (en angle) de la droite
-
-            for (j = iNew + 1; j < n; ++j)
-            {
-                if (j != i)
-                {
-                    PiPj = points[j].position - points[i].position;
-                    alpha = Vector3.Angle(direction, PiPj);
-                    if (alphaMin > alpha || Math.Abs(alphaMin - alpha) < 0.001f && lMax < PiPj.magnitude)
-                    {
-                        alphaMin = alpha;
-                        lMax = PiPj.magnitude;
-                        iNew = j;
-                    }
-                }
-            }
-
-            // mise à jour du pivot et du vecteur directeur
-            direction = points[iNew].position - points[i].position;
-            direction.y = 0;
-            i = iNew;
-
-
-            --crashHandler;
-        } while (i != i0 && crashHandler >= 0);
-
-        polygon.Add(polygon[0]);
-
+    private void DrawPoints(Vector3[] pts) {
         if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
-        _lineRenderer.positionCount = polygon.Count;
-        _lineRenderer.SetPositions(polygon.ToArray());
+        _lineRenderer.positionCount = pts.Length;
+        _lineRenderer.SetPositions(pts.ToArray());
     }
 
-    public void RunGrahamScan()
-    {
-        List<Vector2> polygon = new List<Vector2>();
-        foreach (var point in points)
-        {
-            Vector3 pointPos = point.position;
-            polygon.Add(new Vector2(pointPos.x, pointPos.z));
-        }
+    public void RunJarvisMarch() {
+        var polygon = GeometryUtils.RunJarvisMarch(points.Select(t => t.position).ToArray());
+        DrawPoints(polygon);
+    }
 
-        // 1 - Calcul du barycentre
-        Vector2 center = Vector2.zero;
-        foreach (var point in polygon)
-        {
-            center += point;
-        }
-        center /= points.Count;
-
-        // 2 - Tri des points Pi de points suivant l'angle orienté center, Pi
-        polygon.Sort((p1, p2) =>
-            Math.Sign(Vector2.SignedAngle(center, p2) - Vector2.SignedAngle(center, p1)));
-
-        // 3 - Suppression des points non convexes du polygone
-        int sommetInit = 0;
-        int pivot = sommetInit;
-        bool avance;
-        
-        int crashHandler = 1000;
-        do
-        {
-            int previous = pivot - 1 < 0 ? polygon.Count - 1 : pivot - 1;
-            int next = pivot + 1 > polygon.Count - 1 ? 0 : pivot + 1;
-            float angle = Vector2.SignedAngle(polygon[next] - polygon[pivot], polygon[previous] - polygon[pivot]);
-            if (angle > 180 || angle < 0)  // si pivot convexe
-            {
-                pivot = pivot + 1;
-                if (pivot > polygon.Count - 1) pivot = 0;
-                avance = true;
-            }
-            else
-            {
-                sommetInit = pivot - 1;
-                polygon.RemoveAt(pivot);
-                if (sommetInit < 0) sommetInit = polygon.Count - 1;
-                pivot = sommetInit;
-                avance = false;
-            }
-
-            --crashHandler;
-        } while ((pivot != sommetInit || avance == false) && crashHandler >= 0);
-
-
-        polygon.Add(polygon[0]);
-
-        if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
-        _lineRenderer = Instantiate(lineRendererPrefab);
-        _lineRenderer.positionCount = polygon.Count;
-        for (int i = polygon.Count - 1; i >= 0; --i)
-        {
-            _lineRenderer.SetPosition(i, new Vector3(polygon[i].x, 0, polygon[i].y));
-        }
+    public void RunGrahamScan() {
+        var polygon = GeometryUtils.RunGrahamScan(points.Select(t => t.position).ToArray());
+        DrawPoints(polygon);
     }
 
     public void RunIncrementalTriangulation() {
+        StartCoroutine(RunIncrementalTriangulationCoroutine());
+    }
+    public IEnumerator RunIncrementalTriangulationCoroutine() {
         var pointsCloud = points.Select(point => point.position).ToArray();
         // 1 - tri par abscisse croissante
         var sorted = false;
@@ -220,22 +99,50 @@ public class GeometryManager : MonoBehaviour
                 result.Add(currentIndex);
             }
         }
-        
-        if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+        else {
+            result.Add(2);
+            result.Add(0);
+            result.Add(1);
+            result.Add(2);
+            currentIndex = 3;
+        }
+
+        /*if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
         _lineRenderer.positionCount = result.Count;
         for (int i = result.Count - 1; i >= 0; --i)
         {
             _lineRenderer.SetPosition(i, pointsCloud[result[i]]);
-        }
+        }*/
         
-
         // 3 - iterer sur les points restants et trianguler avec les aretes vues par chaque point
         for (int i = currentIndex; i < pointsCount; ++i) {
             // a - recherche des arretes vues par le point i
-            //Vector3 
-            
-            // b - pour toute arrete vue, ajouter au resultat le triangle associe
+            var currentPolygon = GeometryUtils.RunJarvisMarch(pointsCloud.Take(i).ToArray());
+            for (int j = currentPolygon.Length - 1; j > 0; --j) {
+                Vector3 p1 = currentPolygon[j], p2 = currentPolygon[j - 1];
+                Vector3 p31 = pointsCloud[i], p32 = GeometryUtils.BaryCenter(currentPolygon);
+                /*int side1 = GeometryUtils.Side(p1, p2, p31);
+                int side2 = GeometryUtils.Side(p1, p2, p32);*/
+                
+                //if (side1 != side2) {
+                Plane plane = new Plane(p1, p2, p1 + Vector3.up);
+                if (!plane.SameSide(p31, p32)) {
+                    // b - pour toute arrete vue, ajouter au resultat le triangle associe
+                    if(result[result.Count - 1] != i)
+                        result.Add(i);
+                    result.Add(j);
+                    result.Add(j - 1);
+                    result.Add(i);
+                }
+            }
+
+            DrawPoints(result.Select(index => pointsCloud[index]).ToArray());
+            yield return null;
+            //break;
+            continue;
         }
+
+        yield return null;
     }
 }
