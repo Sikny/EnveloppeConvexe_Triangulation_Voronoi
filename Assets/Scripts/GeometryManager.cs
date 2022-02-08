@@ -1,4 +1,3 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -87,7 +86,6 @@ public class GeometryManager : MonoBehaviour
             }
             else break; // we stop on first too far point
         }
-        Debug.Log("Aligned points : " + alignedPoints.Count);
         // b - avec le premier point suivant à droite, trianguler
         if (alignedPoints.Count >= 2) {
             currentIndex = alignedPoints.Count;
@@ -121,24 +119,21 @@ public class GeometryManager : MonoBehaviour
             var currentPolygon = GeometryUtils.RunJarvisMarch(pointsCloud.Take(i).ToArray());
             for (int j = currentPolygon.Length - 1; j > 0; --j) {
                 Vector3 p1 = currentPolygon[j], p2 = currentPolygon[j - 1];
-                Vector3 p31 = pointsCloud[i], p32 = GeometryUtils.BaryCenter(currentPolygon);
-                /*int side1 = GeometryUtils.Side(p1, p2, p31);
-                int side2 = GeometryUtils.Side(p1, p2, p32);*/
-                
-                //if (side1 != side2) {
-                Plane plane = new Plane(p1, p2, p1 + Vector3.up);
-                if (!plane.SameSide(p31, p32)) {
+                Vector3 n = Vector3.Cross((p2 - p1).normalized, Vector3.down);
+                Vector3 point = pointsCloud[i];
+                float dot = Vector3.Dot((point - p1).normalized, n);
+                if(dot > 0) {
                     // b - pour toute arrete vue, ajouter au resultat le triangle associe
                     if(result[result.Count - 1] != i)
                         result.Add(i);
-                    result.Add(j);
-                    result.Add(j - 1);
+                    result.Add(pointsCloud.ToList().IndexOf(currentPolygon[j]));
+                    result.Add(pointsCloud.ToList().IndexOf(currentPolygon[j-1]));
                     result.Add(i);
                 }
             }
 
             DrawPoints(result.Select(index => pointsCloud[index]).ToArray());
-            yield return null;
+            //yield return null;
             //break;
             continue;
         }

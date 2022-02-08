@@ -4,14 +4,6 @@ using System.Linq;
 using UnityEngine;
 
 public static class GeometryUtils {
-    public static Vector3 BaryCenter(Vector3[] points) {
-        Vector3 result = Vector3.zero;
-        foreach (var point in points) {
-            result += point;
-        }
-        return result / points.Length;
-    }
-    
     public static Vector3[] RunJarvisMarch(Vector3[] points) {
         // polygone resultat
         List<Vector3> polygon = new List<Vector3>();
