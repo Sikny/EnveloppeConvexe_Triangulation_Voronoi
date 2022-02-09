@@ -4,6 +4,9 @@ using System.Linq;
 using UnityEngine;
 
 public static class GeometryUtils {
+    private const float Tolerance = 0.0001f;
+    
+    #region CONVEX_HULL
     public static Vector3[] RunJarvisMarch(Vector3[] points) {
         // polygone resultat
         List<Vector3> polygon = new List<Vector3>();
@@ -135,4 +138,72 @@ public static class GeometryUtils {
 
         return polygon.Select(vector2 => new Vector3(vector2.x, 0, vector2.y)).ToArray();
     }
+    #endregion
+    
+    #region TRIANGULATION
+    public static int[] RunIncrementalTriangulation(Vector3[] points) {
+        var pointsCount = points.Length;
+        // 1 - tri par abscisse croissante
+        var sorted = false;
+        while (!sorted) {
+            sorted = true;
+            for (int i = 0; i < pointsCount - 1; ++i) {
+                Vector3 p1 = points[i], p2 = points[i + 1];
+                if (p1.x > p2.x || p1.x > p2.x + Tolerance && p1.y > p2.y) {
+                    sorted = false;
+                    // swap
+                    points[i] = p2;
+                    points[i + 1] = p1;
+                }
+            }
+        }
+
+        var result = new List<int>();
+        int currentIndex = 0;
+        
+        // 2 - initialisation
+        // a - on construit une suite de k - 1 aretes colineaires avec les k points alignés
+        var alignedPoints = new List<Vector3>();
+        float firstX = points[0].x;
+        alignedPoints.Add(points[0]);
+        for (int i = 1; i < pointsCount; ++i) {
+            if (points[i].x - firstX < Tolerance) {
+                alignedPoints.Add(points[i]);
+            }
+            else break; // on s'arrête au premier point trop loin
+        }
+        // b - avec le premier point suivant à droite, trianguler
+        if (alignedPoints.Count >= 2) {
+            currentIndex = alignedPoints.Count;
+            for (int i = 0; i < currentIndex; ++i) {
+                result.AddRange(new []{i, i+1, currentIndex});
+            }
+        }
+        else {
+            result.AddRange(new []{0, 1, 2});
+            currentIndex = 3;
+        }
+
+        var ptList = points.ToList();
+        // 3 - iterer sur les points restants et trianguler avec les aretes vues par chaque point
+        for (int i = currentIndex; i < pointsCount; ++i) {
+            // a - recherche des aretes vues par le point i
+            var currentPolygon = RunJarvisMarch(points.Take(i).ToArray());
+            for (int j = currentPolygon.Length - 1; j > 0; --j) {
+                Vector3 p1 = currentPolygon[j], p2 = currentPolygon[j - 1];
+                var n = Vector3.Cross((p2 - p1).normalized, Vector3.down);
+                var point = points[i];
+                var dot = Vector3.Dot((point - p1).normalized, n);
+                if (dot > 0) {
+                    // b - pout toute arete vue, ajouter au resultat le triangle associe
+                    result.AddRange(new []{ptList.IndexOf(currentPolygon[j]), ptList.IndexOf(currentPolygon[j-1]), i});
+                }
+            }
+        }
+        return result.ToArray();
+    }
+    #endregion
+    
+    #region VORONOI
+    #endregion
 }
