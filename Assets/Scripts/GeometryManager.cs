@@ -31,19 +31,19 @@ public class GeometryManager : MonoBehaviour
         if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
     }
 
-    private void DrawLines(Vector3[] pts) {
+    protected void DrawLines(Vector3[] pts) {
         if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
         _lineRenderer.positionCount = pts.Length;
         _lineRenderer.SetPositions(pts.ToArray());
     }
 
-    public void RunJarvisMarch() {
+    public virtual void RunJarvisMarch() {
         var polygon = GeometryUtils.RunJarvisMarch(points.Select(t => t.position).ToArray());
         DrawLines(polygon);
     }
 
-    public void RunGrahamScan() {
+    public virtual void RunGrahamScan() {
         var polygon = GeometryUtils.RunGrahamScan(points.Select(t => t.position).ToArray());
         DrawLines(polygon);
     }
