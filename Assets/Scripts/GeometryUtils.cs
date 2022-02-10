@@ -215,5 +215,12 @@ public static class GeometryUtils {
 
         return result.ToArray();
     }
+
+    public static int[] RunDelaunayTriangulation(Vector3[] points)
+    {
+        var triangles = RunIncrementalTriangulation(points);
+
+        return triangles;
+    }
     #endregion
 }

@@ -56,4 +56,11 @@ public class GeometryManager : MonoBehaviour
         var result = GeometryUtils.RunIncrementalTriangulation(positions);
         DrawPoints(result.Select(index => positions[index]).ToArray());
     }
+
+    public void RunDelaunayTriangulation()
+    {
+        var positions = points.Select(point => point.position).ToArray();
+        var result = GeometryUtils.RunDelaunayTriangulation(positions);
+        DrawPoints(result.Select(index => positions[index]).ToArray());
+    }
 }
