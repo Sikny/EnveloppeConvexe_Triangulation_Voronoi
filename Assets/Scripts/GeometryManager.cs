@@ -34,33 +34,47 @@ public class GeometryManager : MonoBehaviour
         if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
     }
 
-    private void DrawPoints(Vector3[] pts) {
+    protected void DrawLines(Vector3[] pts) {
         if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
         _lineRenderer = Instantiate(lineRendererPrefab);
         _lineRenderer.positionCount = pts.Length;
         _lineRenderer.SetPositions(pts.ToArray());
     }
 
-    public void RunJarvisMarch() {
+    protected void DrawTriangles(Vector3[] vertices, int[] triangles) {
+        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+        _lineRenderer = Instantiate(lineRendererPrefab);
+        int triCount = triangles.Length / 3;
+        _lineRenderer.positionCount = triCount * 4;
+        for (int i = 0; i < triCount; ++i) {
+            _lineRenderer.SetPosition(i * 4, vertices[triangles[i * 3 + 2]]);
+            _lineRenderer.SetPosition(i * 4 + 1, vertices[triangles[i * 3]]);
+            _lineRenderer.SetPosition(i * 4 + 2, vertices[triangles[i * 3 + 1]]);
+            _lineRenderer.SetPosition(i * 4 + 3, vertices[triangles[i * 3 + 2]]);
+        }
+    }
+
+    public virtual void RunJarvisMarch() {
         var polygon = GeometryUtils.RunJarvisMarch(points.Select(t => t.position).ToArray());
-        DrawPoints(polygon);
+        DrawLines(polygon);
     }
 
-    public void RunGrahamScan() {
+    public virtual void RunGrahamScan() {
         var polygon = GeometryUtils.RunGrahamScan(points.Select(t => t.position).ToArray());
-        DrawPoints(polygon);
+        DrawLines(polygon);
     }
 
-    public void RunIncrementalTriangulation() {
+    public virtual void RunIncrementalTriangulation() {
         var positions = points.Select(point => point.position).ToArray();
         var result = GeometryUtils.RunIncrementalTriangulation(positions);
-        DrawPoints(result.Select(index => positions[index]).ToArray());
+        //DrawLines(result.Select(index => positions[index]).ToArray());
+        DrawTriangles(positions, result);
     }
 
-    public void RunDelaunayTriangulation()
+    public virtual void RunDelaunayTriangulation()
     {
         var positions = points.Select(point => point.position).ToArray();
         var result = GeometryUtils.RunDelaunayTriangulation(positions);
-        DrawPoints(result.Select(index => positions[index]).ToArray());
+        DrawLines(result.Select(index => positions[index]).ToArray());
     }
 }

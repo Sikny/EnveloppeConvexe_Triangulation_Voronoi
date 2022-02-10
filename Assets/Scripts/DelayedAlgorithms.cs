@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public static class DelayedAlgorithms {
@@ -79,6 +80,64 @@ public static class DelayedAlgorithms {
         polygon.Add(polygon[0]);
 
         resultCallback(polygon.ToArray());
+        yield return null;
+    }
+    
+    public static IEnumerator RunGrahamScan(Vector3[] points, float delay, Action<Vector3[]> resultCallback) {
+        var wait = new WaitForSeconds(delay);
+        List<Vector2> polygon = new List<Vector2>();
+        foreach (var point in points)
+        {
+            Vector3 pointPos = point;
+            polygon.Add(new Vector2(pointPos.x, pointPos.z));
+        }
+        resultCallback.Invoke(polygon.Select(vector2 => new Vector3(vector2.x, 0, vector2.y)).ToArray());
         yield return wait;
+
+        // 1 - Calcul du barycentre
+        Vector2 center = Vector2.zero;
+        foreach (var point in polygon)
+        {
+            center += point;
+        }
+        center /= points.Length;
+
+        // 2 - Tri des points Pi de points suivant l'angle orienté center, Pi
+        polygon.Sort((p1, p2) =>
+            Math.Sign(Vector2.SignedAngle(center, p2) - Vector2.SignedAngle(center, p1)));
+
+        // 3 - Suppression des points non convexes du polygone
+        int sommetInit = 0;
+        int pivot = sommetInit;
+        bool avance;
+        
+        do
+        {
+            int previous = pivot - 1 < 0 ? polygon.Count - 1 : pivot - 1;
+            int next = pivot + 1 > polygon.Count - 1 ? 0 : pivot + 1;
+            float angle = Vector2.SignedAngle(polygon[next] - polygon[pivot], polygon[previous] - polygon[pivot]);
+            if (angle > 180 || angle < 0)  // si pivot convexe
+            {
+                pivot = pivot + 1;
+                if (pivot > polygon.Count - 1) pivot = 0;
+                avance = true;
+            }
+            else
+            {
+                sommetInit = pivot - 1;
+                polygon.RemoveAt(pivot);
+                if (sommetInit < 0) sommetInit = polygon.Count - 1;
+                pivot = sommetInit;
+                avance = false;
+                resultCallback.Invoke(polygon.Select(vector2 => new Vector3(vector2.x, 0, vector2.y)).ToArray());
+                yield return wait;
+            }
+        } while (pivot != sommetInit || avance == false);
+
+
+        polygon.Add(polygon[0]);
+
+        resultCallback.Invoke(polygon.Select(vector2 => new Vector3(vector2.x, 0, vector2.y)).ToArray());
+        yield return null;
     }
 }

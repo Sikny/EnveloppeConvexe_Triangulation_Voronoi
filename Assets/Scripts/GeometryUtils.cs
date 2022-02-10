@@ -178,15 +178,15 @@ public static class GeometryUtils {
         if (alignedPoints.Count >= 2) {
             currentIndex = alignedPoints.Count;
             for (int i = 0; i < currentIndex; ++i) {
-                if(result.Count == 0 || result[result.Count - 1] != currentIndex)
-                    result.Add(currentIndex);
+                /*if(result.Count == 0 || result[result.Count - 1] != currentIndex)
+                    result.Add(currentIndex);*/
                 result.Add(i);
                 result.Add(i+1);
                 result.Add(currentIndex);
             }
         }
         else {
-            result.Add(2);
+            //result.Add(2);
             result.Add(0);
             result.Add(1);
             result.Add(2);
@@ -204,8 +204,8 @@ public static class GeometryUtils {
                 float dot = Vector3.Dot((point - p1).normalized, n);
                 if(dot > 0) {
                     // b - pour toute arrete vue, ajouter au resultat le triangle associe
-                    if(result[result.Count - 1] != i)
-                        result.Add(i);
+                    /*if(result[result.Count - 1] != i)
+                        result.Add(i);*/
                     result.Add(points.ToList().IndexOf(currentPolygon[j]));
                     result.Add(points.ToList().IndexOf(currentPolygon[j-1]));
                     result.Add(i);
@@ -216,8 +216,7 @@ public static class GeometryUtils {
         return result.ToArray();
     }
 
-    public static int[] RunDelaunayTriangulation(Vector3[] points)
-    {
+    public static int[] RunDelaunayTriangulation(Vector3[] points) {
         var triangles = RunIncrementalTriangulation(points);
 
         return triangles;

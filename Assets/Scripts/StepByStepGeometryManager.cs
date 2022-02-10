@@ -7,7 +7,7 @@ namespace DefaultNamespace {
         }
 
         public override void RunGrahamScan() {
-            
+            StartCoroutine(DelayedAlgorithms.RunGrahamScan(points.Select(t => t.position).ToArray(), 0.25f, DrawLines));
         }
     }
 }
