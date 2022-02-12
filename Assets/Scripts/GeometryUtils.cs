@@ -10,9 +10,14 @@ public static class GeometryUtils {
     public class Circle {
         public Vector3 center;
         public float radius;
+
+        public bool Contains(Vector3 point) {
+            return Vector3.Distance(center, point) < radius;
+        }
     }
-    
+
     #region CONVEX_HULL
+
     public static Vector3[] RunJarvisMarch(Vector3[] points) {
         // polygone resultat
         List<Vector3> polygon = new List<Vector3>();
@@ -45,8 +50,7 @@ public static class GeometryUtils {
         int iNew;
 
         int crashHandler = 1000;
-        do
-        {
+        do {
             // ajout du point pivot au polygone
             polygon.Add(points[i]);
 
@@ -61,14 +65,11 @@ public static class GeometryUtils {
 
             // recherche du point le plus proche (en angle) de la droite
 
-            for (j = iNew + 1; j < n; ++j)
-            {
-                if (j != i)
-                {
+            for (j = iNew + 1; j < n; ++j) {
+                if (j != i) {
                     PiPj = points[j] - points[i];
                     alpha = Vector3.Angle(direction, PiPj);
-                    if (alphaMin > alpha || Math.Abs(alphaMin - alpha) < 0.001f && lMax < PiPj.magnitude)
-                    {
+                    if (alphaMin > alpha || Math.Abs(alphaMin - alpha) < 0.001f && lMax < PiPj.magnitude) {
                         alphaMin = alpha;
                         lMax = PiPj.magnitude;
                         iNew = j;
@@ -92,18 +93,17 @@ public static class GeometryUtils {
 
     public static Vector3[] RunGrahamScan(Vector3[] points) {
         List<Vector2> polygon = new List<Vector2>();
-        foreach (var point in points)
-        {
+        foreach (var point in points) {
             Vector3 pointPos = point;
             polygon.Add(new Vector2(pointPos.x, pointPos.z));
         }
 
         // 1 - Calcul du barycentre
         Vector2 center = Vector2.zero;
-        foreach (var point in polygon)
-        {
+        foreach (var point in polygon) {
             center += point;
         }
+
         center /= points.Length;
 
         // 2 - Tri des points Pi de points suivant l'angle orienté center, Pi
@@ -114,21 +114,19 @@ public static class GeometryUtils {
         int sommetInit = 0;
         int pivot = sommetInit;
         bool avance;
-        
+
         int crashHandler = 1000;
-        do
-        {
+        do {
             int previous = pivot - 1 < 0 ? polygon.Count - 1 : pivot - 1;
             int next = pivot + 1 > polygon.Count - 1 ? 0 : pivot + 1;
             float angle = Vector2.SignedAngle(polygon[next] - polygon[pivot], polygon[previous] - polygon[pivot]);
-            if (angle > 180 || angle < 0)  // si pivot convexe
+            if (angle > 180 || angle < 0) // si pivot convexe
             {
                 pivot = pivot + 1;
                 if (pivot > polygon.Count - 1) pivot = 0;
                 avance = true;
             }
-            else
-            {
+            else {
                 sommetInit = pivot - 1;
                 polygon.RemoveAt(pivot);
                 if (sommetInit < 0) sommetInit = polygon.Count - 1;
@@ -144,12 +142,12 @@ public static class GeometryUtils {
 
         return polygon.Select(vector2 => new Vector3(vector2.x, 0, vector2.y)).ToArray();
     }
+
     #endregion
 
     #region TRIANGULATION
 
-    public static int[] RunIncrementalTriangulation(Vector3[] points)
-    {
+    public static int[] RunIncrementalTriangulation(Vector3[] points) {
         // 1 - tri par abscisse croissante
         var sorted = false;
         var pointsCount = points.Length;
@@ -168,7 +166,7 @@ public static class GeometryUtils {
         // resultat
         var result = new List<int>();
         int currentIndex = 0;
-        
+
         // 2 - initialisation
         // a - on construit une suite de k - 1 aretes colineaires avec les k points alignés
         var alignedPoints = new List<Vector3>();
@@ -180,6 +178,7 @@ public static class GeometryUtils {
             }
             else break; // we stop on first too far point
         }
+
         // b - avec le premier point suivant à droite, trianguler
         if (alignedPoints.Count >= 2) {
             currentIndex = alignedPoints.Count;
@@ -187,7 +186,7 @@ public static class GeometryUtils {
                 /*if(result.Count == 0 || result[result.Count - 1] != currentIndex)
                     result.Add(currentIndex);*/
                 result.Add(i);
-                result.Add(i+1);
+                result.Add(i + 1);
                 result.Add(currentIndex);
             }
         }
@@ -198,7 +197,7 @@ public static class GeometryUtils {
             result.Add(2);
             currentIndex = 3;
         }
-        
+
         // 3 - iterer sur les points restants et trianguler avec les aretes vues par chaque point
         for (int i = currentIndex; i < pointsCount; ++i) {
             // a - recherche des arretes vues par le point i
@@ -208,12 +207,12 @@ public static class GeometryUtils {
                 Vector3 n = Vector3.Cross((p2 - p1).normalized, Vector3.down);
                 Vector3 point = points[i];
                 float dot = Vector3.Dot((point - p1).normalized, n);
-                if(dot > 0) {
+                if (dot > 0) {
                     // b - pour toute arrete vue, ajouter au resultat le triangle associe
                     /*if(result[result.Count - 1] != i)
                         result.Add(i);*/
                     result.Add(points.ToList().IndexOf(currentPolygon[j]));
-                    result.Add(points.ToList().IndexOf(currentPolygon[j-1]));
+                    result.Add(points.ToList().IndexOf(currentPolygon[j - 1]));
                     result.Add(i);
                 }
             }
@@ -225,17 +224,60 @@ public static class GeometryUtils {
     public static Circle GetCircumcircle(Vector3 a, Vector3 b, Vector3 c) {
         float d = 2 * (a.x * (b.z - c.z) + b.x * (c.z - a.z) + c.x * (a.z - b.z));
         var result = new Circle {
-            center = new Vector3(1 / d * ((a.x.Sqr() + a.z.Sqr()) * (b.z - c.z) + (b.x.Sqr() + b.z.Sqr()) * (c.z - a.z) + (c.x.Sqr() + c.z.Sqr()) * (a.z - b.z)), 
+            center = new Vector3(1 / d * ((a.x.Sqr() + a.z.Sqr()) * (b.z - c.z) + (b.x.Sqr() + b.z.Sqr()) * (c.z - a.z) + (c.x.Sqr() + c.z.Sqr()) * (a.z - b.z)),
                 0, 1 / d * ((a.x.Sqr() + a.z.Sqr()) * (c.x - b.x) + (b.x.Sqr() + b.z.Sqr()) * (a.x - c.x) + (c.x.Sqr() + c.z.Sqr()) * (b.x - a.x))),
         };
         result.radius = Vector3.Distance(result.center, a);
         return result;
     }
-    
-    public static int[] RunDelaunayTriangulation(Vector3[] points) {
-        
-        var triangles = RunIncrementalTriangulation(points);
 
+    private static void EdgeFlipping(Vector3[] points, int[] trianglesCouple) {
+        var triangle1 = new[] {
+            trianglesCouple[0], trianglesCouple[1], trianglesCouple[2]
+        };
+        var triangle2 = new[] {
+            trianglesCouple[3], trianglesCouple[4], trianglesCouple[5],
+        };
+        var pts = trianglesCouple.GroupBy(v => v).Select(obj => obj.Key).ToArray(); // should be size 4
+        Debug.Log("Pts size : " + pts.Length);
+        
+        // edges
+        var a1 = new[] { pts[0], pts[3] };
+        var a2 = new[] { pts[0], pts[2] };
+        var a3 = new[] { pts[2], pts[1] };
+        var a4 = new[] { pts[1], pts[3] };
+
+        var edges = new List<int[]> (new []{ a1, a2, a3, a4 });
+        
+        while (edges.Count > 0) {
+            var currentEdge = edges.First();
+            edges.Remove(currentEdge);
+            
+            // si currentEdge ne vérifie pas le critère de Delaunay, flip
+            // 1 - get triangle concerned by edge
+            int[] triangle, otherTriangle;
+            if (triangle1.Contains(currentEdge[0]) && triangle1.Contains(currentEdge[1])) {
+                triangle = triangle1;
+                otherTriangle = triangle2;
+            }
+            else {
+                triangle = triangle2;
+                otherTriangle = triangle1;
+            }
+            Circle circumcircle = GetCircumcircle(points[triangle[0]], points[triangle[1]], points[triangle[2]]);
+            if (circumcircle.Contains(points[triangle2[0]]) && circumcircle.Contains(points[triangle2[1]]) &&
+                circumcircle.Contains(points[triangle2[2]])) {
+                // flip
+                Debug.Log("Flip");
+            }
+        }
+    }
+
+    public static int[] RunDelaunayTriangulation(Vector3[] points) {
+        var triangles = RunIncrementalTriangulation(points);
+        
+        EdgeFlipping(points, triangles.Take(6).ToArray());
+        
         return triangles;
     }
     #endregion

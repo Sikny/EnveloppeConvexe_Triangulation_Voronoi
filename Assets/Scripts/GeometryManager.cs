@@ -74,6 +74,6 @@ public class GeometryManager : MonoBehaviour
     {
         var positions = points.Select(point => point.position).ToArray();
         var result = GeometryUtils.RunDelaunayTriangulation(positions);
-        DrawLines(result.Select(index => positions[index]).ToArray());
+        DrawTriangles(positions, result);
     }
 }
