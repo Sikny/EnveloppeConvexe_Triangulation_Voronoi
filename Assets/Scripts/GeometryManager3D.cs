@@ -31,6 +31,7 @@ public class GeometryManager3D : MonoBehaviour
         points = new List<Transform>();
         convexHull = new List<Vector3>();
         index = new List<int>();
+        normals = new List<Vector3>();
         
         mesh = new Mesh();
         mesh.name = "convexHull";
@@ -48,7 +49,11 @@ public class GeometryManager3D : MonoBehaviour
     public void InitConvexHull()
     {
         Convex();
-
+        //return;
+        mesh.vertices = SetVertices();
+        mesh.triangles = GenerateTriangles(convex.faces);
+        mesh.normals = CalculateNormals(convex.faces).ToArray();
+        //mesh.RecalculateNormals();
     }
 
     public Vector3[] SetVertices()
@@ -80,46 +85,35 @@ public class GeometryManager3D : MonoBehaviour
         return index.ToArray();
     }
 
-    public List<Vector3> CalculateNormals(List<ConvexHull.Face> faces, List<ConvexHull.Vertex> vertices)
+    public List<Vector3> CalculateNormals(List<ConvexHull.Face> faces)
     {
-        var normals = new List<Vector3>();
+        normals.Clear();
 
         for(int i = 0; i < faces.Count; i++)
         {
-            Vector3 ab = faces[i].b.pos - faces[i].a.pos;
-            Vector3 ac = faces[i].c.pos - faces[i].a.pos;
-
-            var normal1 = Vector3.Cross(ab, ac).normalized;
-            var normal2 = -normal1;
-
-            Vector3 normal;
-            ConvexHull.Vertex otherPoint = vertices.FirstOrDefault(
-                    v => !v.Equals(faces[i].a) && !v.Equals(faces[i].b) && !v.Equals(faces[i].c)
-                );
-            Vector3 dirToOtherPoint = otherPoint.pos - faces[i].a.pos;
-            normal = (Vector3.Dot(normal1, dirToOtherPoint) > 0)? normal2 : normal1;
-
-            normals.Add(normal);
+            var n = GetNormal(faces[i], convex.vertices);
+            normals.Add(n);
         }
 
         return normals;
     }
 
-    public Vector3 GetNormal(ConvexHull.Face faces, List<ConvexHull.Vertex> vertices)
+    public Vector3 GetNormal(ConvexHull.Face face, List<ConvexHull.Vertex> vertices)
     {
-        Vector3 ab = faces.b.pos - faces.a.pos;
-        Vector3 ac = faces.c.pos - faces.a.pos;
+        Vector3 ab = face.b.pos - face.a.pos;
+        Vector3 ac = face.c.pos - face.a.pos;
 
         var normal1 = Vector3.Cross(ab, ac).normalized;
-        var normal2 = -normal1;
+        var normal2 = Vector3.Cross(ac,ab).normalized;
 
         Vector3 normal;
         ConvexHull.Vertex otherPoint = vertices.FirstOrDefault(
-                v => !v.Equals(faces.a) && !v.Equals(faces.b) && !v.Equals(faces.c)
+                v => !v.Equals(face.a) && !v.Equals(face.b) && !v.Equals(face.c)
             );
-        Vector3 dirToOtherPoint = otherPoint.pos - faces.a.pos;
-        normal = (Vector3.Dot(normal1, dirToOtherPoint) > 0) ? normal2 : normal1;
-
+        Vector3 dirToOtherPoint = otherPoint.pos - face.a.pos;
+        
+        normal = (Vector3.Dot(normal1, dirToOtherPoint) >= 0) ? normal2 : normal1;
+        
 
         return normal;
     }
@@ -128,18 +122,17 @@ public class GeometryManager3D : MonoBehaviour
     {
         convex = CreateBase();
 
-        mesh.vertices = SetVertices();
-        mesh.triangles = GenerateTriangles(convex.faces);
-        mesh.normals = CalculateNormals(convex.faces, convex.vertices).ToArray();
+        /*
+        Debug.Log("normales :" + normals.Count);
+        Debug.Log("faces :" + mesh.triangles.Length);
+        Debug.Log("vertices :" + convex.vertices.Count);
+        */
 
-        Debug.Log("normales :" + mesh.normals.Length);
-        Debug.Log("faces :" + mesh.triangles.Length/2);
-        Debug.Log("vertices :" + mesh.vertices.Length);
         UpdateConvexHull();
-
-        mesh.vertices = SetVertices();
-        mesh.triangles = GenerateTriangles(convex.faces);
-        mesh.normals = CalculateNormals(convex.faces, convex.vertices).ToArray();
+        for (int i = 0; i < convex.vertices.Count; i++)
+        {
+            convex.vertices[i].index = i;
+        }
     }
 
     private ConvexHull CreateBase()
@@ -183,10 +176,10 @@ public class GeometryManager3D : MonoBehaviour
 
     private void UpdateConvexHull()
     {
-        var normalesLocal = CalculateNormals(convex.faces, convex.vertices).ToArray();
-
+        
         for (int i = 4; i < points.Count; i++)
         {
+            //var normalesLocal = CalculateNormals(convex.faces, convex.vertices).ToArray();
             var p = points[i];
 
             List<ConvexHull.Face> visible = new List<ConvexHull.Face>();
@@ -194,7 +187,8 @@ public class GeometryManager3D : MonoBehaviour
             {
 
                 var dirToPoint = p.position - convex.faces[j].a.pos;
-                if (Vector3.Dot(dirToPoint, normalesLocal[j]) >= 0)
+                var normaleFace = GetNormal(convex.faces[j],convex.vertices);
+                if (Vector3.Dot(dirToPoint, normaleFace) >= 0)
                 {
                     visible.Add(convex.faces[j]);
                 }
@@ -211,21 +205,30 @@ public class GeometryManager3D : MonoBehaviour
                     bool f1Visible = visible.Contains(edge.f1);
                     bool f2Visible = visible.Contains(edge.f2);
 
+
                     if (f1Visible && f2Visible)
                     {
                         visibleEdges.Add(edge);
-                        visibleVertices.Add(edge.v1);
-                        visibleVertices.Add(edge.v2);
+
+                        if (!visibleVertices.Contains(edge.v1) && !edge.v1.isOneVisibleAndInvisible) visibleVertices.Add(edge.v1);
+                        if (!visibleVertices.Contains(edge.v2) && !edge.v2.isOneVisibleAndInvisible) visibleVertices.Add(edge.v2);
+                        Debug.DrawLine(edge.v1.pos, edge.v2.pos, Color.blue);
                     }
-                    else if (!f1Visible && !f2Visible)
+                    if (!f1Visible && !f2Visible)
                     {
                         edge.isOneVisibleAndInvisible = false;
+
+                        Debug.DrawLine(edge.v1.pos, edge.v2.pos, Color.green);
                     }
                     else
                     {
                         edge.isOneVisibleAndInvisible = true;
                         edge.v1.isOneVisibleAndInvisible = true;
                         edge.v2.isOneVisibleAndInvisible = true;
+
+                        visibleVertices.Remove(edge.v1);
+                        visibleVertices.Remove(edge.v2);
+                        Debug.DrawLine(edge.v1.pos, edge.v2.pos, Color.magenta);
                     }
                 }
 
@@ -236,12 +239,16 @@ public class GeometryManager3D : MonoBehaviour
                 }
                 for(int eindex = 0; eindex < visibleEdges.Count; eindex++)
                 {
+                    Debug.DrawLine(visibleEdges[eindex].v1.pos, visibleEdges[eindex].v2.pos, Color.red);
                     convex.edges.Remove(visibleEdges[eindex]);
                 }
                 for(int vindex = 0; vindex < visibleVertices.Count; vindex++)
                 {
+                    Debug.Log("vertice remove : " + visibleVertices[vindex].ToString());
                     convex.vertices.Remove(visibleVertices[vindex]);
                 }
+
+                Debug.Log("------------------------------------------");
 
                 //Créer les nouvelles faces et les nouveaux points, alias nouvelles victimes
                 List<ConvexHull.Edge> isOneVisibleEdge = convex.edges.Where(edge => edge.isOneVisibleAndInvisible).ToList();
@@ -268,33 +275,41 @@ public class GeometryManager3D : MonoBehaviour
                     Vector3 normal = GetNormal(newFace, convex.vertices);
                     Vector3 up = Vector3.Cross(pointToLarry, pointToBateau);
 
-                    if(Vector3.Dot(normal, up) > 0)
+                    //Debug.DrawLine(center, normal, Color.yellow);
+
+                    if (Vector3.Dot(normal, up) >= 0)
                     {
                         newFace.c = newFace.b;
                         newFace.b = newP;
                     }
 
-                    newFaces.Add(newFace);
-                    convex.faces.Add(newFace);
                     if (visible.Contains(edge.f1)) edge.f1 = newFace;
                     else edge.f2 = newFace;
+
+                    newFaces.Add(newFace);
+                    
+                    convex.faces.Add(newFace);
                 }
 
                 convex.vertices.Add(newP);
 
-                foreach(var edge in newEdges)
+                foreach (var edge in newEdges)
                 {
                     foreach(var face in newFaces)
                     {
+
+                        Debug.DrawLine(face.a.pos, face.b.pos, Color.yellow);
+                        Debug.DrawLine(face.a.pos, face.c.pos, Color.yellow);
+                        Debug.DrawLine(face.c.pos, face.b.pos, Color.yellow);
                         var otherVertex = edge.v1.Equals(newP)? edge.v2 : edge.v1;
                         bool checkAB = CheckEdge(face.a, face.b, edge.v1, edge.v2);
                         bool checkBC = CheckEdge(face.b, face.c, edge.v1, edge.v2);
                         bool checkCA = CheckEdge(face.a, face.c, edge.v1, edge.v2);
 
-                        if(!checkAB && !checkBC && !checkAB)
+                        /*if(!checkAB && !checkBC && !checkAB)
                         {
                             continue;
-                        }
+                        }*/
                         if (checkAB)
                         {
                             if (newP == face.a) edge.f1 = face;
@@ -313,7 +328,9 @@ public class GeometryManager3D : MonoBehaviour
                     }
                 }
             }
+            
         }
+        
     }
 
     private bool CheckEdge(ConvexHull.Vertex a, ConvexHull.Vertex b, ConvexHull.Vertex c, ConvexHull.Vertex d)
