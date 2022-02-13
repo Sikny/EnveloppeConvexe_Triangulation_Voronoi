@@ -41,6 +41,10 @@ public class ConvexHull
         public Vector3 pos;
         public int index;
         public bool isOneVisibleAndInvisible;
+        public override string ToString()
+        {
+            return pos.ToString("f3");
+        }
     }
     
 }
