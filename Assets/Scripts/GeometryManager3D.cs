@@ -52,8 +52,68 @@ public class GeometryManager3D : MonoBehaviour
         //return;
         mesh.vertices = SetVertices();
         mesh.triangles = GenerateTriangles(convex.faces);
-        mesh.normals = CalculateNormals(convex.faces).ToArray();
-        //mesh.RecalculateNormals();
+        //mesh.normals = CalculateNormals(convex.faces).ToArray();
+        mesh.RecalculateNormals();
+    }
+
+    //The Jokes on You
+    public void Voronoi()
+    {
+        List<Vector3> centers = new List<Vector3>();
+        foreach (var f in convex.faces)
+        {
+            /*
+            var middle = (f.a.pos + f.b.pos + f.c.pos)/ 3;
+            Debug.DrawLine(middle, (f.a.pos + f.b.pos)/2, Color.red);
+            Debug.DrawLine(middle, (f.a.pos + f.c.pos)/2, Color.red);
+            Debug.DrawLine(middle, (f.b.pos + f.c.pos)/2, Color.red);
+            */
+
+            Vector3 center = new Vector3();
+
+            var v1 = f.b.pos - f.a.pos;
+            var v2 = f.c.pos - f.a.pos;
+
+            var k1 = 0.5 * Vector3.Dot(v2, v2) * (Vector3.Dot(v1, v1) - Vector3.Dot(v1, v2)) / (Vector3.Dot(v1, v1) * Vector3.Dot(v2, v2) - Vector3.Dot(v1, v2)* Vector3.Dot(v1, v2));
+            var k2 = 0.5 * Vector3.Dot(v1, v1) * (Vector3.Dot(v2, v2) - Vector3.Dot(v1, v2)) / (Vector3.Dot(v1, v1) * Vector3.Dot(v2, v2) - Vector3.Dot(v1, v2)* Vector3.Dot(v1, v2));
+
+            center.x = (float)(f.a.pos.x + (k1 * v1.x) + (k2 * v2.x));
+            center.y = (float)(f.a.pos.y + (k1 * v1.y) + (k2 * v2.y));
+            center.z = (float)(f.a.pos.z + (k1 * v1.z) + (k2 * v2.z));
+
+            Debug.DrawLine((f.a.pos + f.b.pos)/2, center, Color.red);
+            Debug.DrawLine((f.a.pos + f.c.pos)/2, center, Color.red);
+            Debug.DrawLine((f.b.pos + f.c.pos)/2, center, Color.red);
+
+            centers.Add(center);
+            Debug.Log(center);
+        }
+    }
+
+    public static bool LineLineIntersection(out Vector3 intersection, Vector3 linePoint1,
+        Vector3 lineVec1, Vector3 linePoint2, Vector3 lineVec2)
+    {
+
+        Vector3 lineVec3 = linePoint2 - linePoint1;
+        Vector3 crossVec1and2 = Vector3.Cross(lineVec1, lineVec2);
+        Vector3 crossVec3and2 = Vector3.Cross(lineVec3, lineVec2);
+
+        float planarFactor = Vector3.Dot(lineVec3, crossVec1and2);
+
+        //is coplanar, and not parallel
+        if (Mathf.Abs(planarFactor) < 0.0001f
+                && crossVec1and2.sqrMagnitude > 0.0001f)
+        {
+            float s = Vector3.Dot(crossVec3and2, crossVec1and2)
+                    / crossVec1and2.sqrMagnitude;
+            intersection = linePoint1 + (lineVec1 * s);
+            return true;
+        }
+        else
+        {
+            intersection = Vector3.zero;
+            return false;
+        }
     }
 
     public Vector3[] SetVertices()
@@ -114,7 +174,6 @@ public class GeometryManager3D : MonoBehaviour
         
         normal = (Vector3.Dot(normal1, dirToOtherPoint) >= 0) ? normal2 : normal1;
         
-
         return normal;
     }
 
@@ -133,6 +192,7 @@ public class GeometryManager3D : MonoBehaviour
         {
             convex.vertices[i].index = i;
         }
+        Voronoi();
     }
 
     private ConvexHull CreateBase()
@@ -212,13 +272,11 @@ public class GeometryManager3D : MonoBehaviour
 
                         if (!visibleVertices.Contains(edge.v1) && !edge.v1.isOneVisibleAndInvisible) visibleVertices.Add(edge.v1);
                         if (!visibleVertices.Contains(edge.v2) && !edge.v2.isOneVisibleAndInvisible) visibleVertices.Add(edge.v2);
-                        Debug.DrawLine(edge.v1.pos, edge.v2.pos, Color.blue);
                     }
                     if (!f1Visible && !f2Visible)
                     {
                         edge.isOneVisibleAndInvisible = false;
 
-                        Debug.DrawLine(edge.v1.pos, edge.v2.pos, Color.green);
                     }
                     else
                     {
@@ -228,7 +286,6 @@ public class GeometryManager3D : MonoBehaviour
 
                         visibleVertices.Remove(edge.v1);
                         visibleVertices.Remove(edge.v2);
-                        Debug.DrawLine(edge.v1.pos, edge.v2.pos, Color.magenta);
                     }
                 }
 
@@ -239,16 +296,12 @@ public class GeometryManager3D : MonoBehaviour
                 }
                 for(int eindex = 0; eindex < visibleEdges.Count; eindex++)
                 {
-                    Debug.DrawLine(visibleEdges[eindex].v1.pos, visibleEdges[eindex].v2.pos, Color.red);
                     convex.edges.Remove(visibleEdges[eindex]);
                 }
                 for(int vindex = 0; vindex < visibleVertices.Count; vindex++)
                 {
-                    Debug.Log("vertice remove : " + visibleVertices[vindex].ToString());
                     convex.vertices.Remove(visibleVertices[vindex]);
                 }
-
-                Debug.Log("------------------------------------------");
 
                 //Créer les nouvelles faces et les nouveaux points, alias nouvelles victimes
                 List<ConvexHull.Edge> isOneVisibleEdge = convex.edges.Where(edge => edge.isOneVisibleAndInvisible).ToList();
@@ -275,7 +328,6 @@ public class GeometryManager3D : MonoBehaviour
                     Vector3 normal = GetNormal(newFace, convex.vertices);
                     Vector3 up = Vector3.Cross(pointToLarry, pointToBateau);
 
-                    //Debug.DrawLine(center, normal, Color.yellow);
 
                     if (Vector3.Dot(normal, up) >= 0)
                     {
@@ -297,10 +349,6 @@ public class GeometryManager3D : MonoBehaviour
                 {
                     foreach(var face in newFaces)
                     {
-
-                        Debug.DrawLine(face.a.pos, face.b.pos, Color.yellow);
-                        Debug.DrawLine(face.a.pos, face.c.pos, Color.yellow);
-                        Debug.DrawLine(face.c.pos, face.b.pos, Color.yellow);
                         var otherVertex = edge.v1.Equals(newP)? edge.v2 : edge.v1;
                         bool checkAB = CheckEdge(face.a, face.b, edge.v1, edge.v2);
                         bool checkBC = CheckEdge(face.b, face.c, edge.v1, edge.v2);
