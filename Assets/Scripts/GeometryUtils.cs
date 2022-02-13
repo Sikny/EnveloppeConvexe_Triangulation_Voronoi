@@ -258,13 +258,31 @@ public static class GeometryUtils {
         }
 
         trianglesInfo = triangles.ToArray();
-        string log = "";
-        foreach (var data in trianglesIndices) {
-            log += data + " ";
-        }
-        Debug.Log(log);
         
         return trianglesIndices;
+    }
+
+    public static List<Vector3[]> RunVoronoi(Triangle[] triangles, int[] trianglesIndices, Vector3[] vertices) {
+        int triCount = triangles.Length;
+        var edges = Edge.ListFromIndices(trianglesIndices);
+        int edgeCount = edges.Count;
+        var circumcircles = new Dictionary<Triangle, Circle>();
+        for (int i = 0; i < triCount; ++i) {
+            circumcircles[triangles[i]] = Circle.Circumcircle(vertices, triangles[i]);
+        }
+
+        var edgesOut = new List<Vector3[]>();
+        for (int i = 0; i < edgeCount; ++i) {
+            var edgeTriangles = triangles.Where(tri => tri.Contains(edges[i])).ToArray();
+            if (edgeTriangles.Length < 2) continue;
+            var edge = new[] {
+                circumcircles[edgeTriangles[0]].center,
+                circumcircles[edgeTriangles[1]].center
+            };
+            edgesOut.Add(edge);
+        }
+
+        return edgesOut;
     }
     #endregion
 }
