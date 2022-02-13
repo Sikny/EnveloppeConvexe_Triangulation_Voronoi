@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Geometry;
 using UnityEngine;
 
 public class GeometryManager : MonoBehaviour
@@ -8,7 +9,7 @@ public class GeometryManager : MonoBehaviour
 
     public List<Transform> points;
     [SerializeField] private LineRenderer lineRendererPrefab;
-    private LineRenderer _lineRenderer;
+    private LineRenderer[] _lineRenderers;
     
     private const float Tolerance = 0.0001f;
 
@@ -30,26 +31,39 @@ public class GeometryManager : MonoBehaviour
             Destroy(points[i].gameObject);
             points.RemoveAt(i);
         }
-        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
+        ClearLines();
+    }
+
+    private void ClearLines() {
+        _lineRenderers = FindObjectsOfType<LineRenderer>();
+        for (int i = _lineRenderers.Length - 1; i >= 0; --i) {
+            Destroy(_lineRenderers[i].gameObject);
+        }
     }
 
     protected void DrawLines(Vector3[] pts) {
-        if (_lineRenderer != null) Destroy(_lineRenderer.gameObject);
-        _lineRenderer = Instantiate(lineRendererPrefab);
-        _lineRenderer.positionCount = pts.Length;
-        _lineRenderer.SetPositions(pts.ToArray());
+        ClearLines();
+        _lineRenderers = new[] {
+            Instantiate(lineRendererPrefab)
+        };
+        _lineRenderers[0].positionCount = pts.Length;
+        _lineRenderers[0].SetPositions(pts.ToArray());
     }
 
     protected void DrawTriangles(Vector3[] vertices, int[] triangles) {
-        if(_lineRenderer != null) Destroy(_lineRenderer.gameObject);
-        _lineRenderer = Instantiate(lineRendererPrefab);
+        ClearLines();
+        
         int triCount = triangles.Length / 3;
-        _lineRenderer.positionCount = triCount * 4;
+        _lineRenderers = new LineRenderer[triCount];
+        int index = 0;
         for (int i = 0; i < triCount; ++i) {
-            _lineRenderer.SetPosition(i * 4, vertices[triangles[i * 3 + 2]]);
-            _lineRenderer.SetPosition(i * 4 + 1, vertices[triangles[i * 3]]);
-            _lineRenderer.SetPosition(i * 4 + 2, vertices[triangles[i * 3 + 1]]);
-            _lineRenderer.SetPosition(i * 4 + 3, vertices[triangles[i * 3 + 2]]);
+            var lineRenderer = Instantiate(lineRendererPrefab);
+            lineRenderer.positionCount = 4;
+            lineRenderer.SetPosition(0, vertices[triangles[i * 3]]);
+            lineRenderer.SetPosition(1, vertices[triangles[i * 3 + 1]]);
+            lineRenderer.SetPosition(2, vertices[triangles[i * 3 + 2]]);
+            lineRenderer.SetPosition(3, vertices[triangles[i * 3]]);
+            _lineRenderers[index++] = lineRenderer;
         }
     }
 
@@ -70,10 +84,12 @@ public class GeometryManager : MonoBehaviour
         DrawTriangles(positions, result);
     }
 
+    
+    public Triangle[] trianglesInfo;
     public virtual void RunDelaunayTriangulation()
     {
         var positions = points.Select(point => point.position).ToArray();
-        var result = GeometryUtils.RunDelaunayTriangulation(positions);
+        var result = GeometryUtils.RunDelaunayTriangulation(positions, out trianglesInfo);
         DrawTriangles(positions, result);
     }
 }

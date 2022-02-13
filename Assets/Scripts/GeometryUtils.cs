@@ -1,20 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Geometry;
 using UnityEngine;
 
 public static class GeometryUtils {
     private const float Tolerance = 0.0001f;
-
-    [Serializable]
-    public class Circle {
-        public Vector3 center;
-        public float radius;
-
-        public bool Contains(Vector3 point) {
-            return Vector3.Distance(center, point) < radius;
-        }
-    }
 
     #region CONVEX_HULL
 
@@ -146,7 +137,6 @@ public static class GeometryUtils {
     #endregion
 
     #region TRIANGULATION
-
     public static int[] RunIncrementalTriangulation(Vector3[] points) {
         // 1 - tri par abscisse croissante
         var sorted = false;
@@ -221,64 +211,60 @@ public static class GeometryUtils {
         return result.ToArray();
     }
 
-    public static Circle GetCircumcircle(Vector3 a, Vector3 b, Vector3 c) {
-        float d = 2 * (a.x * (b.z - c.z) + b.x * (c.z - a.z) + c.x * (a.z - b.z));
-        var result = new Circle {
-            center = new Vector3(1 / d * ((a.x.Sqr() + a.z.Sqr()) * (b.z - c.z) + (b.x.Sqr() + b.z.Sqr()) * (c.z - a.z) + (c.x.Sqr() + c.z.Sqr()) * (a.z - b.z)),
-                0, 1 / d * ((a.x.Sqr() + a.z.Sqr()) * (c.x - b.x) + (b.x.Sqr() + b.z.Sqr()) * (a.x - c.x) + (c.x.Sqr() + c.z.Sqr()) * (b.x - a.x))),
-        };
-        result.radius = Vector3.Distance(result.center, a);
-        return result;
-    }
 
-    private static void EdgeFlipping(Vector3[] points, int[] trianglesCouple) {
-        var triangle1 = new[] {
-            trianglesCouple[0], trianglesCouple[1], trianglesCouple[2]
-        };
-        var triangle2 = new[] {
-            trianglesCouple[3], trianglesCouple[4], trianglesCouple[5],
-        };
-        var pts = trianglesCouple.GroupBy(v => v).Select(obj => obj.Key).ToArray(); // should be size 4
-        Debug.Log("Pts size : " + pts.Length);
-        
-        // edges
-        var a1 = new[] { pts[0], pts[3] };
-        var a2 = new[] { pts[0], pts[2] };
-        var a3 = new[] { pts[2], pts[1] };
-        var a4 = new[] { pts[1], pts[3] };
+    public static int[] RunDelaunayTriangulation(Vector3[] points, out Triangle[] trianglesInfo) {
+        var trianglesIndices = RunIncrementalTriangulation(points);
+        var edges = Edge.ListFromIndices(trianglesIndices);
+        var triangles = Triangle.ListFromIndices(trianglesIndices);
 
-        var edges = new List<int[]> (new []{ a1, a2, a3, a4 });
-        
         while (edges.Count > 0) {
+            // get next edge
             var currentEdge = edges.First();
             edges.Remove(currentEdge);
             
-            // si currentEdge ne vérifie pas le critère de Delaunay, flip
-            // 1 - get triangle concerned by edge
-            int[] triangle, otherTriangle;
-            if (triangle1.Contains(currentEdge[0]) && triangle1.Contains(currentEdge[1])) {
-                triangle = triangle1;
-                otherTriangle = triangle2;
-            }
-            else {
-                triangle = triangle2;
-                otherTriangle = triangle1;
-            }
-            Circle circumcircle = GetCircumcircle(points[triangle[0]], points[triangle[1]], points[triangle[2]]);
-            if (circumcircle.Contains(points[triangle2[0]]) && circumcircle.Contains(points[triangle2[1]]) &&
-                circumcircle.Contains(points[triangle2[2]])) {
-                // flip
-                Debug.Log("Flip");
+            // triangles concernés par currentEdge
+            var edgeTriangles = triangles.Where(tri => tri.Contains(currentEdge)).ToArray();
+            Debug.Log(edgeTriangles.Length);
+            if (edgeTriangles.Length < 2) continue;
+            // critere de delaunay
+            var circumcircle1 = Circle.Circumcircle(points, edgeTriangles[0]);
+            var circumcircle2 = Circle.Circumcircle(points, edgeTriangles[1]);
+
+            var testPoint1 = edgeTriangles[0].Points.First(p => p != currentEdge.s1 && p != currentEdge.s2);
+            var testPoint2 = edgeTriangles[1].Points.First(p => p != currentEdge.s1 && p != currentEdge.s2);
+            
+            if (circumcircle1.Contains(points[testPoint2]) || circumcircle2.Contains(points[testPoint1])) {
+                // FLIP EDGE
+                var s1 = currentEdge.s1;
+                var s2 = currentEdge.s2;
+                var s3 = edgeTriangles[0].Points.First(s => s != s1 && s != s2);
+                var s4 = edgeTriangles[1].Points.First(s => s != s1 && s != s2);
+                var a1 = new Edge(s1, s4);
+                var a2 = new Edge(s1, s3);
+                var a3 = new Edge(s3, s2);
+                var a4 = new Edge(s2, s4);
+                currentEdge = new Edge(s3, s4);
+                edgeTriangles[0].Set(new[] { currentEdge, a2, a1 });
+                edgeTriangles[1].Set(new[] { currentEdge, a4, a3 });
             }
         }
-    }
+        
+        // copy back triangles data to indices
+        for (int i = 0; i < triangles.Count; ++i) {
+            var pts = triangles[i].Points;
+            trianglesIndices[i * 3] = pts[0];
+            trianglesIndices[i * 3 + 1] = pts[1];
+            trianglesIndices[i * 3 + 2] = pts[2];
+        }
 
-    public static int[] RunDelaunayTriangulation(Vector3[] points) {
-        var triangles = RunIncrementalTriangulation(points);
+        trianglesInfo = triangles.ToArray();
+        string log = "";
+        foreach (var data in trianglesIndices) {
+            log += data + " ";
+        }
+        Debug.Log(log);
         
-        EdgeFlipping(points, triangles.Take(6).ToArray());
-        
-        return triangles;
+        return trianglesIndices;
     }
     #endregion
 }

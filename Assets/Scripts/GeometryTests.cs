@@ -1,8 +1,9 @@
+using Geometry;
 using UnityEditor;
 using UnityEngine;
 
 public class GeometryTests : MonoBehaviour {
-    public GeometryUtils.Circle _circle;
+    public Circle _circle;
 
     [Header("Triangle")] public Transform a;
     public Transform b;
@@ -10,7 +11,7 @@ public class GeometryTests : MonoBehaviour {
     
     [ContextMenu("Draw Circumcircle")]
     private void DrawCircumcircle() {
-        _circle = GeometryUtils.GetCircumcircle(a.position, b.position, c.position);
+        _circle = Circle.Circumcircle(a.position, b.position, c.position);
     }
 
     private void OnDrawGizmos() {
