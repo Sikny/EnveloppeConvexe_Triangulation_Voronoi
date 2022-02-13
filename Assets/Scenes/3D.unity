@@ -537,6 +537,7 @@ MonoBehaviour:
   points: []
   convexHull: []
   index: 
+  normals: []
   mesh: {fileID: 0}
   material: {fileID: 2100000, guid: 2da0ddc3ffa1f2447b83f366661265f0, type: 2}
 --- !u!4 &1734439161
