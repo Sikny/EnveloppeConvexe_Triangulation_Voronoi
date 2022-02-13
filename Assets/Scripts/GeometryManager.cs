@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
-using Geometry;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GeometryManager : MonoBehaviour
 {
@@ -9,6 +9,9 @@ public class GeometryManager : MonoBehaviour
 
     public List<Transform> points;
     [SerializeField] private LineRenderer lineRendererPrefab;
+    [SerializeField] private Toggle clearScreenOnDrawToggle;
+    [SerializeField] private Color currentLineColor;
+    [SerializeField] private Image currentLineColorImage;
     private LineRenderer[] _lineRenderers;
     
     private const float Tolerance = 0.0001f;
@@ -19,6 +22,15 @@ public class GeometryManager : MonoBehaviour
             Destroy(gameObject);
         instance = this;
         points = new List<Transform>();
+    }
+
+    public void OpenColorPicker() {
+        ColorPicker.Create(currentLineColor, "Choose line color", SetColor, null);
+    }
+
+    private void SetColor(Color currentColor) {
+        currentLineColor = currentColor;
+        currentLineColorImage.color = currentColor;
     }
 
     public void AddPoint(Transform p)
@@ -42,29 +54,34 @@ public class GeometryManager : MonoBehaviour
     }
 
     protected void DrawPolyLine(Vector3[] pts) {
-        ClearLines();
+        if(clearScreenOnDrawToggle.isOn)
+            ClearLines();
         _lineRenderers = new[] {
             Instantiate(lineRendererPrefab)
         };
         _lineRenderers[0].positionCount = pts.Length;
         _lineRenderers[0].SetPositions(pts.ToArray());
+        _lineRenderers[0].material.color = currentLineColor;
     }
 
     protected void DrawLines(List<Vector3[]> lines) {
-        ClearLines();
+        if(clearScreenOnDrawToggle.isOn)
+            ClearLines();
         int lineCount = lines.Count;
         _lineRenderers = new LineRenderer[lineCount];
         for (int i = 0; i < lineCount; ++i) {
             var lineRenderer = Instantiate(lineRendererPrefab);
-            lineRenderer.positionCount = 4;
+            lineRenderer.positionCount = 2;
             lineRenderer.SetPosition(0, lines[i][0]);
             lineRenderer.SetPosition(1, lines[i][1]);
+            lineRenderer.material.color = currentLineColor;
             _lineRenderers[i] = lineRenderer;
         }
     }
 
     protected void DrawTriangles(Vector3[] vertices, int[] triangles) {
-        ClearLines();
+        if(clearScreenOnDrawToggle.isOn)
+            ClearLines();
         
         int triCount = triangles.Length / 3;
         _lineRenderers = new LineRenderer[triCount];
@@ -76,6 +93,7 @@ public class GeometryManager : MonoBehaviour
             lineRenderer.SetPosition(1, vertices[triangles[i * 3 + 1]]);
             lineRenderer.SetPosition(2, vertices[triangles[i * 3 + 2]]);
             lineRenderer.SetPosition(3, vertices[triangles[i * 3]]);
+            lineRenderer.material.color = currentLineColor;
             _lineRenderers[index++] = lineRenderer;
         }
     }

@@ -224,7 +224,6 @@ public static class GeometryUtils {
             
             // triangles concernés par currentEdge
             var edgeTriangles = triangles.Where(tri => tri.Contains(currentEdge)).ToArray();
-            Debug.Log(edgeTriangles.Length);
             if (edgeTriangles.Length < 2) continue;
             // critere de delaunay
             var circumcircle1 = Circle.Circumcircle(points, edgeTriangles[0]);
@@ -274,10 +273,17 @@ public static class GeometryUtils {
         var edgesOut = new List<Vector3[]>();
         for (int i = 0; i < edgeCount; ++i) {
             var edgeTriangles = triangles.Where(tri => tri.Contains(edges[i])).ToArray();
-            if (edgeTriangles.Length < 2) continue;
+            Vector3 pos1 = circumcircles[edgeTriangles[0]].center;
+            Vector3 pos2;
+            if (edgeTriangles.Length == 2) pos2 = circumcircles[edgeTriangles[1]].center;
+            else {
+                //continue;
+                var direction = ((vertices[edges[i].s1] + vertices[edges[i].s2]) / 2 - pos1).normalized;
+                pos2 = pos1 + direction * 10;
+            }
             var edge = new[] {
-                circumcircles[edgeTriangles[0]].center,
-                circumcircles[edgeTriangles[1]].center
+                pos1,
+                pos2
             };
             edgesOut.Add(edge);
         }
