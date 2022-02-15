@@ -260,6 +260,7 @@ public static class GeometryUtils {
         
         return trianglesIndices;
     }
+    #endregion
 
     public static List<Vector3[]> RunVoronoi(Triangle[] triangles, int[] trianglesIndices, Vector3[] vertices) {
         int triCount = triangles.Length;
@@ -290,5 +291,4 @@ public static class GeometryUtils {
 
         return edgesOut;
     }
-    #endregion
 }

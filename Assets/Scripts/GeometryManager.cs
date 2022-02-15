@@ -13,8 +13,6 @@ public class GeometryManager : MonoBehaviour
     [SerializeField] private Color currentLineColor;
     [SerializeField] private Image currentLineColorImage;
     private LineRenderer[] _lineRenderers;
-    
-    private const float Tolerance = 0.0001f;
 
     private void Awake()
     {
@@ -46,7 +44,7 @@ public class GeometryManager : MonoBehaviour
         ClearLines();
     }
 
-    private void ClearLines() {
+    protected void ClearLines() {
         _lineRenderers = FindObjectsOfType<LineRenderer>();
         for (int i = _lineRenderers.Length - 1; i >= 0; --i) {
             Destroy(_lineRenderers[i].gameObject);

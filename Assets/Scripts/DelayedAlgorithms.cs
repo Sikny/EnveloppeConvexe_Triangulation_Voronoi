@@ -2,9 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Geometry;
 using UnityEngine;
 
 public static class DelayedAlgorithms {
+    private const float Tolerance = 0.0001f;
     public static IEnumerator RunJarvisMarch(Vector3[] points, float delay, Action<Vector3[]> resultCallback) {
         var wait = new WaitForSeconds(delay);  
         // polygone resultat
@@ -139,5 +141,187 @@ public static class DelayedAlgorithms {
 
         resultCallback.Invoke(polygon.Select(vector2 => new Vector3(vector2.x, 0, vector2.y)).ToArray());
         yield return null;
+    }
+    
+    public static IEnumerator RunIncrementalTriangulation(Vector3[] points, float delay, Action<int[]> resultCallback) {
+        var wait = new WaitForSeconds(delay);
+        // 1 - tri par abscisse croissante
+        var sorted = false;
+        var pointsCount = points.Length;
+        while (!sorted) {
+            sorted = true;
+            for (int i = 0; i < pointsCount - 1; ++i) {
+                if (points[i].x > points[i + 1].x
+                    || points[i].x > points[i + 1].x + Tolerance && points[i].y > points[i + 1].y) {
+                    sorted = false;
+                    // swap
+                    (points[i], points[i + 1]) = (points[i + 1], points[i]);
+                }
+            }
+        }
+
+        // resultat
+        var result = new List<int>();
+        int currentIndex = 0;
+
+        // 2 - initialisation
+        // a - on construit une suite de k - 1 aretes colineaires avec les k points alignés
+        var alignedPoints = new List<Vector3>();
+        float firstX = points[0].x;
+        alignedPoints.Add(points[0]);
+        for (int i = 1; i < pointsCount; ++i) {
+            if (points[i].x - firstX < Tolerance) {
+                alignedPoints.Add(points[i]);
+            }
+            else break; // we stop on first too far point
+        }
+
+        // b - avec le premier point suivant à droite, trianguler
+        if (alignedPoints.Count >= 2) {
+            currentIndex = alignedPoints.Count;
+            for (int i = 0; i < currentIndex; ++i) {
+                /*if(result.Count == 0 || result[result.Count - 1] != currentIndex)
+                    result.Add(currentIndex);*/
+                result.Add(i);
+                result.Add(i + 1);
+                result.Add(currentIndex);
+                resultCallback.Invoke(result.ToArray());
+                yield return wait;
+            }
+        }
+        else {
+            //result.Add(2);
+            result.Add(0);
+            result.Add(1);
+            result.Add(2);
+            resultCallback.Invoke(result.ToArray());
+            yield return wait;
+            currentIndex = 3;
+        }
+
+        // 3 - iterer sur les points restants et trianguler avec les aretes vues par chaque point
+        for (int i = currentIndex; i < pointsCount; ++i) {
+            // a - recherche des arretes vues par le point i
+            var currentPolygon = GeometryUtils.RunJarvisMarch(points.Take(i).ToArray());
+            for (int j = currentPolygon.Length - 1; j > 0; --j) {
+                Vector3 p1 = currentPolygon[j], p2 = currentPolygon[j - 1];
+                Vector3 n = Vector3.Cross((p2 - p1).normalized, Vector3.down);
+                Vector3 point = points[i];
+                float dot = Vector3.Dot((point - p1).normalized, n);
+                if (dot > 0) {
+                    // b - pour toute arrete vue, ajouter au resultat le triangle associe
+                    /*if(result[result.Count - 1] != i)
+                        result.Add(i);*/
+                    result.Add(points.ToList().IndexOf(currentPolygon[j]));
+                    result.Add(points.ToList().IndexOf(currentPolygon[j - 1]));
+                    result.Add(i);
+                    resultCallback.Invoke(result.ToArray());
+                    yield return wait;
+                }
+            }
+        }
+
+        resultCallback.Invoke(result.ToArray());
+        yield return null;// result.ToArray();
+    }
+
+
+    public static IEnumerator RunDelaunayTriangulation(Vector3[] points, float delay, Action<int[], Triangle[]> resultCallback) {
+        var wait = new WaitForSeconds(delay);
+        var trianglesIndices = GeometryUtils.RunIncrementalTriangulation(points);
+        var edges = Edge.ListFromIndices(trianglesIndices);
+        var triangles = Triangle.ListFromIndices(trianglesIndices);
+
+        while (edges.Count > 0) {
+            // get next edge
+            var currentEdge = edges.First();
+            edges.Remove(currentEdge);
+            
+            // triangles concernés par currentEdge
+            var edgeTriangles = triangles.Where(tri => tri.Contains(currentEdge)).ToArray();
+            if (edgeTriangles.Length < 2) continue;
+            // critere de delaunay
+            var circumcircle1 = Circle.Circumcircle(points, edgeTriangles[0]);
+            var circumcircle2 = Circle.Circumcircle(points, edgeTriangles[1]);
+
+            var testPoint1 = edgeTriangles[0].Points.First(p => p != currentEdge.s1 && p != currentEdge.s2);
+            var testPoint2 = edgeTriangles[1].Points.First(p => p != currentEdge.s1 && p != currentEdge.s2);
+            
+            if (circumcircle1.Contains(points[testPoint2]) || circumcircle2.Contains(points[testPoint1])) {
+                // FLIP EDGE
+                var s1 = currentEdge.s1;
+                var s2 = currentEdge.s2;
+                var s3 = edgeTriangles[0].Points.First(s => s != s1 && s != s2);
+                var s4 = edgeTriangles[1].Points.First(s => s != s1 && s != s2);
+                var a1 = new Edge(s1, s4);
+                var a2 = new Edge(s1, s3);
+                var a3 = new Edge(s3, s2);
+                var a4 = new Edge(s2, s4);
+                currentEdge = new Edge(s3, s4);
+                edgeTriangles[0].Set(new[] { currentEdge, a2, a1 });
+                edgeTriangles[1].Set(new[] { currentEdge, a4, a3 });
+                
+                
+                // copy back triangles data to indices
+                for (int i = 0; i < triangles.Count; ++i) {
+                    var pts = triangles[i].Points;
+                    trianglesIndices[i * 3] = pts[0];
+                    trianglesIndices[i * 3 + 1] = pts[1];
+                    trianglesIndices[i * 3 + 2] = pts[2];
+                }
+                resultCallback.Invoke(trianglesIndices, triangles.ToArray());
+                yield return wait;
+            }
+        }
+        
+        // copy back triangles data to indices
+        for (int i = 0; i < triangles.Count; ++i) {
+            var pts = triangles[i].Points;
+            trianglesIndices[i * 3] = pts[0];
+            trianglesIndices[i * 3 + 1] = pts[1];
+            trianglesIndices[i * 3 + 2] = pts[2];
+        }
+
+        //trianglesInfo = triangles.ToArray();
+        
+        //return trianglesIndices;
+        resultCallback.Invoke(trianglesIndices, triangles.ToArray());
+        yield return null;
+    }
+    
+    public static IEnumerator RunVoronoi(Triangle[] triangles, int[] trianglesIndices, Vector3[] vertices, 
+            float delay, Action<List<Vector3[]>> resultCallback) {
+        var wait = new WaitForSeconds(delay);
+        int triCount = triangles.Length;
+        var edges = Edge.ListFromIndices(trianglesIndices);
+        int edgeCount = edges.Count;
+        var circumcircles = new Dictionary<Triangle, Circle>();
+        for (int i = 0; i < triCount; ++i) {
+            circumcircles[triangles[i]] = Circle.Circumcircle(vertices, triangles[i]);
+        }
+
+        var edgesOut = new List<Vector3[]>();
+        for (int i = 0; i < edgeCount; ++i) {
+            var edgeTriangles = triangles.Where(tri => tri.Contains(edges[i])).ToArray();
+            Vector3 pos1 = circumcircles[edgeTriangles[0]].center;
+            Vector3 pos2;
+            if (edgeTriangles.Length == 2) pos2 = circumcircles[edgeTriangles[1]].center;
+            else {
+                //continue;
+                var direction = ((vertices[edges[i].s1] + vertices[edges[i].s2]) / 2 - pos1).normalized;
+                pos2 = pos1 + direction * 10;
+            }
+            var edge = new[] {
+                pos2,
+                pos1
+            };
+            edgesOut.Add(edge);
+            resultCallback.Invoke(edgesOut);
+            yield return wait;
+        }
+
+        //return edgesOut;
+        resultCallback.Invoke(edgesOut);
+        yield return wait;
     }
 }
